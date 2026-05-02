@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // Connect to MongoDB directly
-mongoose.connect('mongodb+srv://icyatwandoba:X0V4dU7MOGX1falJ@cluster0.2plh1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
+mongoose.connect('mongodb+srv://icyatwandoba_db_user:AgGldWWt4XXlVkAr@cluster0.ajvsbaw.mongodb.net/?appName=Cluster0')
   .then(async () => {
     console.log('Connected to MongoDB');
 

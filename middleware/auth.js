@@ -4,7 +4,6 @@ const User = require('../models/User');
 
 const protect = async (req, res, next) => {
   try {
-    // Check if token exists
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
@@ -17,7 +16,6 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user from token
     const user = await User.findById(decoded.id);
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
@@ -27,6 +25,22 @@ const protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth error:', error);
+
+    // ✅ Distinguish token errors so the frontend can act accordingly
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        message: 'Session expired, please log in again',
+        code: 'TOKEN_EXPIRED'  // frontend can check this code
+      });
+    }
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        message: 'Invalid token, please log in again',
+        code: 'TOKEN_INVALID'
+      });
+    }
+
     res.status(401).json({ message: 'Not authorized to access this route' });
   }
 };

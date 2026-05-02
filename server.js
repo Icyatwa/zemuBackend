@@ -5,6 +5,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/authRoutes');
 const newsRoutes = require('./routes/newsRoutes');
+const marketDataRoutes = require('./routes/marketDataRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { warmCache } = require('./controllers/newsController');
 
@@ -25,6 +26,7 @@ mongoose.connect(process.env.MONGODB_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/market', marketDataRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
