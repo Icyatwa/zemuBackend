@@ -1,5 +1,6 @@
 // models/commentController.js
 const Comment = require('../models/Comment');
+const mongoose = require('mongoose'); 
 
 // GET comments for a market item
 exports.getComments = async (req, res) => {
@@ -39,29 +40,51 @@ exports.addReply = async (req, res) => {
   try {
     const { commentId } = req.params;
     const { text } = req.body;
-    if (!text?.trim()) return res.status(400).json({ message: 'Reply text required' });
 
-    const reply = {
-      _id: new mongoose.Types.ObjectId(),
-      user: req.user._id,
-      userName: req.user.name,
-      text: text.trim(),
-      likes: [],
-      createdAt: new Date()
-    };
+    if (!text?.trim()) {
+      return res.status(400).json({ message: 'Reply text required' });
+    }
+
+    console.log('--- addReply hit ---');
+    console.log('commentId:', commentId);
+    console.log('user:', req.user?._id, req.user?.name);
+    console.log('text:', text);
 
     const comment = await Comment.findByIdAndUpdate(
       commentId,
-      { $push: { replies: reply } },
+      {
+        $push: {
+          replies: {
+            user: req.user._id,
+            userName: req.user.name,
+            text: text.trim(),
+            likes: [],
+            createdAt: new Date()
+          }
+        }
+      },
       { new: true, runValidators: false }
     );
 
-    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    console.log('comment after update:', comment?._id);
+
+    if (!comment) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
 
     res.status(201).json(comment);
+
   } catch (err) {
-    console.error('addReply error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('addReply ERROR name:', err.name);
+    console.error('addReply ERROR message:', err.message);
+    console.error('addReply ERROR stack:', err.stack);
+    // Send full error back so you can see it in browser too
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: err.message,
+      name: err.name,
+      stack: err.stack 
+    });
   }
 };
 
