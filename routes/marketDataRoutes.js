@@ -1,3 +1,4 @@
+// routes/marketDataRoute.js
 const express = require('express');
 const router = express.Router();
 const { getAll, createItem, updateItem, deleteItem, seedData } = require('../controllers/marketDataController');

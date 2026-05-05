@@ -1,3 +1,4 @@
+// marketDataController.js
 const { Stock, Forex, Good } = require('../models/MarketData');
 
 const getModel = (type) => {
