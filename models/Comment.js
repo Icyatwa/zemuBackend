@@ -2,11 +2,12 @@
 const mongoose = require('mongoose');
 
 const replySchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'UserAccount', required: true },
-  userName: { type: String, required: true },
-  text: { type: String, required: true, maxlength: 500 },
-  likes: { type: [mongoose.Schema.Types.ObjectId], ref: 'UserAccount', default: [] },
-  createdAt: { type: Date, default: Date.now }
+  user:          { type: mongoose.Schema.Types.ObjectId, ref: 'UserAccount', required: true },
+  userName:      { type: String, required: true },
+  text:          { type: String, required: true, maxlength: 500 },
+  likes:         { type: [mongoose.Schema.Types.ObjectId], ref: 'UserAccount', default: [] },
+  parentReplyId: { type: mongoose.Schema.Types.ObjectId, default: null }, // ← NEW
+  createdAt:     { type: Date, default: Date.now }
 }, { _id: true });
 
 const commentSchema = new mongoose.Schema({

@@ -1,4 +1,4 @@
-// models/commentController.js
+// controllers/commentController.js
 const Comment = require('../models/Comment');
 const mongoose = require('mongoose'); 
 
@@ -39,52 +39,36 @@ exports.createComment = async (req, res) => {
 exports.addReply = async (req, res) => {
   try {
     const { commentId } = req.params;
-    const { text } = req.body;
+    const { text, parentReplyId } = req.body; // ← destructure parentReplyId
 
     if (!text?.trim()) {
       return res.status(400).json({ message: 'Reply text required' });
     }
-
-    console.log('--- addReply hit ---');
-    console.log('commentId:', commentId);
-    console.log('user:', req.user?._id, req.user?.name);
-    console.log('text:', text);
 
     const comment = await Comment.findByIdAndUpdate(
       commentId,
       {
         $push: {
           replies: {
-            user: req.user._id,
-            userName: req.user.name,
-            text: text.trim(),
-            likes: [],
-            createdAt: new Date()
+            user:          req.user._id,
+            userName:      req.user.name,
+            text:          text.trim(),
+            likes:         [],
+            parentReplyId: parentReplyId || null, // ← store it
+            createdAt:     new Date()
           }
         }
       },
       { new: true, runValidators: false }
     );
 
-    console.log('comment after update:', comment?._id);
-
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
 
     res.status(201).json(comment);
-
   } catch (err) {
-    console.error('addReply ERROR name:', err.name);
-    console.error('addReply ERROR message:', err.message);
-    console.error('addReply ERROR stack:', err.stack);
-    // Send full error back so you can see it in browser too
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: err.message,
-      name: err.name,
-      stack: err.stack 
-    });
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
