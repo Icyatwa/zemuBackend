@@ -1,12 +1,12 @@
 // controllers/commentController.js
 const Comment = require('../models/Comment');
-const mongoose = require('mongoose'); 
+const mongoose = require('mongoose');
 
-// GET comments for a market item
-exports.getComments = async (req, res) => {
+// ─── GET comments for a MARKET item ──────────────────────────────────────────
+exports.getMarketComments = async (req, res) => {
   try {
     const { marketType, sym } = req.params;
-    const comments = await Comment.find({ marketType, sym })
+    const comments = await Comment.find({ sourceType: 'market', marketType, sym })
       .sort({ createdAt: -1 })
       .limit(50);
     res.status(200).json(comments);
@@ -15,14 +15,15 @@ exports.getComments = async (req, res) => {
   }
 };
 
-// POST a comment
-exports.createComment = async (req, res) => {
+// ─── POST comment on a MARKET item ───────────────────────────────────────────
+exports.createMarketComment = async (req, res) => {
   try {
     const { marketType, sym } = req.params;
     const { text } = req.body;
     if (!text?.trim()) return res.status(400).json({ message: 'Comment text required' });
 
     const comment = await Comment.create({
+      sourceType: 'market',
       marketType,
       sym,
       user: req.user._id,
@@ -35,15 +36,46 @@ exports.createComment = async (req, res) => {
   }
 };
 
-// POST a reply
+// ─── GET comments for a NEWS article ─────────────────────────────────────────
+exports.getNewsComments = async (req, res) => {
+  try {
+    const { newsId } = req.params;
+    const comments = await Comment.find({ sourceType: 'news', newsId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.status(200).json(comments);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// ─── POST comment on a NEWS article ──────────────────────────────────────────
+exports.createNewsComment = async (req, res) => {
+  try {
+    const { newsId } = req.params;
+    const { text, newsTitle } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: 'Comment text required' });
+
+    const comment = await Comment.create({
+      sourceType: 'news',
+      newsId,
+      newsTitle: newsTitle || null,
+      user: req.user._id,
+      userName: req.user.name,
+      text: text.trim()
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// ─── POST a reply (works for both market & news comments) ────────────────────
 exports.addReply = async (req, res) => {
   try {
     const { commentId } = req.params;
-    const { text, parentReplyId } = req.body; // ← destructure parentReplyId
-
-    if (!text?.trim()) {
-      return res.status(400).json({ message: 'Reply text required' });
-    }
+    const { text, parentReplyId } = req.body;
+    if (!text?.trim()) return res.status(400).json({ message: 'Reply text required' });
 
     const comment = await Comment.findByIdAndUpdate(
       commentId,
@@ -54,7 +86,7 @@ exports.addReply = async (req, res) => {
             userName:      req.user.name,
             text:          text.trim(),
             likes:         [],
-            parentReplyId: parentReplyId || null, // ← store it
+            parentReplyId: parentReplyId || null,
             createdAt:     new Date()
           }
         }
@@ -62,17 +94,14 @@ exports.addReply = async (req, res) => {
       { new: true, runValidators: false }
     );
 
-    if (!comment) {
-      return res.status(404).json({ message: 'Comment not found' });
-    }
-
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
     res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// PATCH toggle like on comment
+// ─── PATCH toggle like on comment ────────────────────────────────────────────
 exports.toggleCommentLike = async (req, res) => {
   try {
     const { commentId } = req.params;
@@ -82,11 +111,9 @@ exports.toggleCommentLike = async (req, res) => {
     if (!comment) return res.status(404).json({ message: 'Comment not found' });
 
     const idx = comment.likes.findIndex(id => id.toString() === userId);
-    if (idx === -1) {
-      comment.likes.push(req.user._id);
-    } else {
-      comment.likes.splice(idx, 1);
-    }
+    if (idx === -1) comment.likes.push(req.user._id);
+    else comment.likes.splice(idx, 1);
+
     await comment.save();
     res.status(200).json({ likes: comment.likes.length, liked: idx === -1 });
   } catch (err) {
@@ -94,16 +121,13 @@ exports.toggleCommentLike = async (req, res) => {
   }
 };
 
-// PATCH toggle like on reply
+// ─── PATCH toggle like on reply ───────────────────────────────────────────────
 exports.toggleReplyLike = async (req, res) => {
   try {
     const { commentId, replyId } = req.params;
     const userId = req.user._id;
 
-    const comment = await Comment.findOne({
-      _id: commentId,
-      'replies._id': replyId
-    });
+    const comment = await Comment.findOne({ _id: commentId, 'replies._id': replyId });
     if (!comment) return res.status(404).json({ message: 'Comment or reply not found' });
 
     const reply = comment.replies.id(replyId);
@@ -113,19 +137,14 @@ exports.toggleReplyLike = async (req, res) => {
       ? { $pull: { 'replies.$.likes': userId } }
       : { $push: { 'replies.$.likes': userId } };
 
-    await Comment.updateOne(
-      { _id: commentId, 'replies._id': replyId },
-      update
-    );
-
+    await Comment.updateOne({ _id: commentId, 'replies._id': replyId }, update);
     res.status(200).json({ likes: reply.likes.length + (alreadyLiked ? -1 : 1), liked: !alreadyLiked });
   } catch (err) {
-    console.error('toggleReplyLike error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// DELETE a comment (owner or admin)
+// ─── DELETE a comment (owner or admin) ───────────────────────────────────────
 exports.deleteComment = async (req, res) => {
   try {
     const comment = await Comment.findById(req.params.commentId);
@@ -136,6 +155,117 @@ exports.deleteComment = async (req, res) => {
     await comment.deleteOne();
     res.status(200).json({ message: 'Deleted' });
   } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// ─── GET activity feed for current user ──────────────────────────────────────
+// Returns all threads the user participated in (posted OR replied in),
+// each enriched with full sibling comments for context.
+exports.getMyActivity = async (req, res) => {
+  try {
+    const userId = req.user._id.toString();
+
+    // 1. All comments where the user is the top-level author
+    const myComments = await Comment.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+
+    // 2. All comments where the user replied
+    const repliedThreads = await Comment.find({
+      'replies.user': userId
+    })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+
+    // 3. Build a deduplicated map of thread IDs to comment docs
+    const threadMap = new Map();
+
+    for (const c of [...myComments, ...repliedThreads]) {
+      if (!threadMap.has(c._id.toString())) {
+        threadMap.set(c._id.toString(), c);
+      }
+    }
+
+    // 4. For each unique thread, also fetch all sibling comments on same source
+    //    so the user can see the full conversation context.
+    const threads = Array.from(threadMap.values());
+
+    // Group threads by source key to batch-fetch siblings
+    const marketKeys = new Map(); // "marketType:sym" -> [commentId, ...]
+    const newsKeys   = new Map(); // "newsId"          -> [commentId, ...]
+
+    for (const t of threads) {
+      if (t.sourceType === 'market') {
+        const key = `${t.marketType}:${t.sym}`;
+        if (!marketKeys.has(key)) marketKeys.set(key, { marketType: t.marketType, sym: t.sym, ids: [] });
+        marketKeys.get(key).ids.push(t._id.toString());
+      } else {
+        const key = t.newsId?.toString();
+        if (key && !newsKeys.has(key)) newsKeys.set(key, { newsId: t.newsId, newsTitle: t.newsTitle, ids: [] });
+        if (key) newsKeys.get(key).ids.push(t._id.toString());
+      }
+    }
+
+    // Fetch sibling comments for each market source
+    const marketSiblingPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) =>
+      Comment.find({ sourceType: 'market', marketType, sym })
+        .sort({ createdAt: -1 }).limit(50).lean()
+    );
+
+    // Fetch sibling comments for each news source
+    const newsSiblingPromises = Array.from(newsKeys.values()).map(({ newsId }) =>
+      Comment.find({ sourceType: 'news', newsId })
+        .sort({ createdAt: -1 }).limit(50).lean()
+    );
+
+    const [marketSiblingGroups, newsSiblingGroups] = await Promise.all([
+      Promise.all(marketSiblingPromises),
+      Promise.all(newsSiblingPromises),
+    ]);
+
+    // Build response: one "conversation" object per unique source the user participated in
+    const conversationMap = new Map();
+
+    // Market conversations
+    Array.from(marketKeys.values()).forEach(({ marketType, sym }, idx) => {
+      const key = `market:${marketType}:${sym}`;
+      const allComments = marketSiblingGroups[idx] || [];
+      conversationMap.set(key, {
+        key,
+        sourceType: 'market',
+        marketType,
+        sym,
+        label: `${marketType?.toUpperCase()} · ${sym}`,
+        allComments,
+        lastActivity: allComments[0]?.createdAt || null,
+      });
+    });
+
+    // News conversations
+    Array.from(newsKeys.values()).forEach(({ newsId, newsTitle }, idx) => {
+      const key = `news:${newsId}`;
+      const allComments = newsSiblingGroups[idx] || [];
+      conversationMap.set(key, {
+        key,
+        sourceType: 'news',
+        newsId,
+        newsTitle,
+        label: newsTitle || 'News Article',
+        allComments,
+        lastActivity: allComments[0]?.createdAt || null,
+      });
+    });
+
+    // Sort conversations by most recent activity
+    const conversations = Array.from(conversationMap.values())
+      .sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
+
+    res.status(200).json({ conversations, totalThreads: threads.length });
+  } catch (err) {
+    console.error('getMyActivity error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
