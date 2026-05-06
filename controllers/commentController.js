@@ -1,6 +1,8 @@
 // controllers/commentController.js
 const Comment = require('../models/Comment');
 const mongoose = require('mongoose');
+const { Stock, Forex, Good } = require('../models/MarketData');
+const News = require('../models/News');
 
 // ─── GET comments for a MARKET item ──────────────────────────────────────────
 exports.getMarketComments = async (req, res) => {
@@ -159,43 +161,21 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
-// ─── GET activity feed for current user ──────────────────────────────────────
-// Returns all threads the user participated in (posted OR replied in),
-// each enriched with full sibling comments for context.
 exports.getMyActivity = async (req, res) => {
   try {
     const userId = req.user._id.toString();
 
-    // 1. All comments where the user is the top-level author
-    const myComments = await Comment.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .lean();
+    const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(200).lean();
+    const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(200).lean();
 
-    // 2. All comments where the user replied
-    const repliedThreads = await Comment.find({
-      'replies.user': userId
-    })
-      .sort({ createdAt: -1 })
-      .limit(200)
-      .lean();
-
-    // 3. Build a deduplicated map of thread IDs to comment docs
     const threadMap = new Map();
-
     for (const c of [...myComments, ...repliedThreads]) {
-      if (!threadMap.has(c._id.toString())) {
-        threadMap.set(c._id.toString(), c);
-      }
+      if (!threadMap.has(c._id.toString())) threadMap.set(c._id.toString(), c);
     }
 
-    // 4. For each unique thread, also fetch all sibling comments on same source
-    //    so the user can see the full conversation context.
     const threads = Array.from(threadMap.values());
-
-    // Group threads by source key to batch-fetch siblings
-    const marketKeys = new Map(); // "marketType:sym" -> [commentId, ...]
-    const newsKeys   = new Map(); // "newsId"          -> [commentId, ...]
+    const marketKeys = new Map();
+    const newsKeys   = new Map();
 
     for (const t of threads) {
       if (t.sourceType === 'market') {
@@ -209,27 +189,33 @@ exports.getMyActivity = async (req, res) => {
       }
     }
 
-    // Fetch sibling comments for each market source
     const marketSiblingPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) =>
-      Comment.find({ sourceType: 'market', marketType, sym })
-        .sort({ createdAt: -1 }).limit(50).lean()
+      Comment.find({ sourceType: 'market', marketType, sym }).sort({ createdAt: -1 }).limit(50).lean()
     );
-
-    // Fetch sibling comments for each news source
     const newsSiblingPromises = Array.from(newsKeys.values()).map(({ newsId }) =>
-      Comment.find({ sourceType: 'news', newsId })
-        .sort({ createdAt: -1 }).limit(50).lean()
+      Comment.find({ sourceType: 'news', newsId }).sort({ createdAt: -1 }).limit(50).lean()
     );
 
-    const [marketSiblingGroups, newsSiblingGroups] = await Promise.all([
+    // ── NEW: fetch the actual market item and news article for context ──
+    const marketItemPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) => {
+      const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
+      const Model = ModelMap[marketType];
+      return Model ? Model.findOne({ sym }).lean() : Promise.resolve(null);
+    });
+
+    const newsArticlePromises = Array.from(newsKeys.values()).map(({ newsId }) =>
+      News.findById(newsId).select('title summary content author date category image').lean()
+    );
+
+    const [marketSiblingGroups, newsSiblingGroups, marketItems, newsArticles] = await Promise.all([
       Promise.all(marketSiblingPromises),
       Promise.all(newsSiblingPromises),
+      Promise.all(marketItemPromises),   // ← new
+      Promise.all(newsArticlePromises),  // ← new
     ]);
 
-    // Build response: one "conversation" object per unique source the user participated in
     const conversationMap = new Map();
 
-    // Market conversations
     Array.from(marketKeys.values()).forEach(({ marketType, sym }, idx) => {
       const key = `market:${marketType}:${sym}`;
       const allComments = marketSiblingGroups[idx] || [];
@@ -241,10 +227,10 @@ exports.getMyActivity = async (req, res) => {
         label: `${marketType?.toUpperCase()} · ${sym}`,
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
+        marketItem: marketItems[idx] || null,   // ← new
       });
     });
 
-    // News conversations
     Array.from(newsKeys.values()).forEach(({ newsId, newsTitle }, idx) => {
       const key = `news:${newsId}`;
       const allComments = newsSiblingGroups[idx] || [];
@@ -256,10 +242,10 @@ exports.getMyActivity = async (req, res) => {
         label: newsTitle || 'News Article',
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
+        newsArticle: newsArticles[idx] || null,  // ← new
       });
     });
 
-    // Sort conversations by most recent activity
     const conversations = Array.from(conversationMap.values())
       .sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
 
