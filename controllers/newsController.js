@@ -132,28 +132,33 @@ exports.deleteNews = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalArticles = await News.countDocuments();
-    const publishedArticles = await News.countDocuments({ status: 'published' });
-    const draftArticles = await News.countDocuments({ status: 'draft' });
-    
-    const categories = {
-      growth: await News.countDocuments({ category: 'growth' }),
-      investment: await News.countDocuments({ category: 'investment' }),
-      trade: await News.countDocuments({ category: 'trade' }),
-      policy: await News.countDocuments({ category: 'policy' })
-    };
+    const [stats, recentActivity] = await Promise.all([
+      News.aggregate([
+        { $facet: {
+          total:      [{ $count: 'n' }],
+          byStatus:   [{ $group: { _id: '$status', n: { $sum: 1 } } }],
+          byCategory: [{ $group: { _id: '$category', n: { $sum: 1 } } }],
+        }}
+      ]),
+      News.find().sort({ updatedAt: -1 }).limit(5)
+        .select('title status updatedAt createdBy')
+    ]);
 
-    const recentActivity = await News.find()
-      .sort({ updatedAt: -1 })
-      .limit(5)
-      .select('title status updatedAt createdBy');
+    const s    = stats[0];
+    const byStatus   = Object.fromEntries(s.byStatus.map(x => [x._id, x.n]));
+    const byCategory = Object.fromEntries(s.byCategory.map(x => [x._id, x.n]));
 
     res.status(200).json({
-      totalArticles,
-      publishedArticles,
-      draftArticles,
-      categories,
-      recentActivity
+      totalArticles:     s.total[0]?.n || 0,
+      publishedArticles: byStatus.published || 0,
+      draftArticles:     byStatus.draft || 0,
+      categories: {
+        growth:     byCategory.growth || 0,
+        investment: byCategory.investment || 0,
+        trade:      byCategory.trade || 0,
+        policy:     byCategory.policy || 0,
+      },
+      recentActivity,
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

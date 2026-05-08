@@ -165,8 +165,8 @@ exports.getMyActivity = async (req, res) => {
   try {
     const userId = req.user._id.toString();
 
-    const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(200).lean();
-    const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(200).lean();
+    const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(50).lean();  // was 200
+const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(50).lean(); // was 200
 
     const threadMap = new Map();
     for (const c of [...myComments, ...repliedThreads]) {

@@ -64,4 +64,8 @@ newsSchema.pre('save', function(next) {
 
 const News = mongoose.model('News', newsSchema);
 
+newsSchema.index({ status: 1, createdAt: -1 });        // main feed query
+newsSchema.index({ status: 1, category: 1, createdAt: -1 }); // filtered feed
+newsSchema.index({ status: 1, title: 'text', summary: 'text' }); // search
+
 module.exports = News;

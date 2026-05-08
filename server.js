@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const compression = require('compression');
 const authRoutes = require('./routes/authRoutes');
 const userAuthRoutes = require('./routes/userAuthRoutes'); // ← new
 const newsRoutes = require('./routes/newsRoutes');
@@ -15,12 +16,15 @@ dotenv.config();
 
 const app = express();
 
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB Atlas'))
   .catch((err) => console.error('MongoDB connection error:', err));
+
+app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date() }));
 
 // Routes
 app.use('/api/auth', authRoutes);           // admin auth
