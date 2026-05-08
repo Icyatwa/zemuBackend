@@ -17,7 +17,14 @@ dotenv.config();
 const app = express();
 
 app.use(compression());
-app.use(cors());
+const corsOptions = {
+  origin: [
+    'https://economy-frontend.vercel.app',  // your Vercel URL
+    'http://localhost:3000',                   // for local development
+  ],
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 mongoose.connect(process.env.MONGODB_URI)
