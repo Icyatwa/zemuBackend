@@ -12,7 +12,8 @@ exports.getAll = async (req, res) => {
   try {
     const Model = getModel(req.params.type);
     if (!Model) return res.status(400).json({ message: 'Invalid type' });
-    res.status(200).json(await Model.find().sort({ sym: 1 }));
+    const items = await Model.find({ archived: { $ne: true } }).sort({ sym: 1 });
+    res.status(200).json(items);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -57,34 +58,30 @@ exports.publishNewData = async (req, res) => {
     const Model = getModel(type);
     if (!Model) return res.status(400).json({ message: 'Invalid type' });
 
-    const current = await Model.findById(id);
-    if (!current) return res.status(404).json({ message: 'Item not found' });
+    const old = await Model.findById(id);
+    if (!old) return res.status(404).json({ message: 'Item not found' });
 
-    // Save current data as previous snapshot
-    const snapshot = {
-      price:      current.price,
-      raw:        current.raw,
-      change:     current.change,
-      chgNum:     current.chgNum,
-      chgDir:     current.chgDir,
-      explain:    current.explain,
-      eli5:       current.eli5,
-      recordedAt: current.updatedAt || new Date(),
-    };
+    // 1. Archive the old document
+    await Model.findByIdAndUpdate(id, {
+      archived:   true,
+      archivedAt: new Date(),
+    });
 
+    // 2. Create a fresh document — same identity, new prices, clean slate
     const { price, raw, change, chgNum, chgDir, explain, eli5 } = req.body;
-    const updated = await Model.findByIdAndUpdate(
-      id,
-      {
-        price, raw, change, chgNum, chgDir, explain, eli5,
-        previousSnapshot: snapshot,
-        dataUpdatedAt: new Date(),
-        updatedAt: new Date(),
-      },
-      { new: true, runValidators: true }
-    );
+    const freshDoc = {
+      sym:    old.sym,
+      name:   old.name,
+      price, raw, change, chgNum, chgDir, explain, eli5,
+      archived:   false,
+      updatedAt:  new Date(),
+    };
+    // carry over sector or flag depending on type
+    if (old.sector) freshDoc.sector = old.sector;
+    if (old.flag)   freshDoc.flag   = old.flag;
 
-    res.status(200).json(updated);
+    const newItem = await Model.create(freshDoc);
+    res.status(201).json(newItem);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

@@ -27,6 +27,8 @@ const baseFields = {
   previousSnapshot: { type: snapshotFields, default: null },
   dataUpdatedAt:    { type: Date, default: null }, // when new period data was published
   updatedAt:        { type: Date, default: Date.now },
+  archived:   { type: Boolean, default: false },
+  archivedAt: { type: Date,    default: null  },
 };
 
 const stockSchema = new mongoose.Schema({

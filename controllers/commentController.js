@@ -166,7 +166,7 @@ exports.getMyActivity = async (req, res) => {
     const userId = req.user._id.toString();
 
     const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(50).lean();  // was 200
-const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(50).lean(); // was 200
+    const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(50).lean(); // was 200
 
     const threadMap = new Map();
     for (const c of [...myComments, ...repliedThreads]) {
@@ -196,11 +196,12 @@ const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ cre
       Comment.find({ sourceType: 'news', newsId }).sort({ createdAt: -1 }).limit(50).lean()
     );
 
-    // ── NEW: fetch the actual market item and news article for context ──
     const marketItemPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) => {
       const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
       const Model = ModelMap[marketType];
-      return Model ? Model.findOne({ sym }).lean() : Promise.resolve(null);
+      if (!Model) return Promise.resolve(null);
+      // Return ALL docs for this sym, the comment controller will pick the right one
+      return Model.find({ sym }).sort({ archivedAt: -1, updatedAt: -1 }).lean();
     });
 
     const newsArticlePromises = Array.from(newsKeys.values()).map(({ newsId }) =>
@@ -227,7 +228,7 @@ const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ cre
         label: `${marketType?.toUpperCase()} · ${sym}`,
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
-        marketItem: marketItems[idx] || null,   // ← new
+        marketItems: marketItems[idx] || [],   // ← new
       });
     });
 
