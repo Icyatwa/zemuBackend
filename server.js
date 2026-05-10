@@ -17,13 +17,23 @@ dotenv.config();
 const app = express();
 
 app.use(compression());
+
 const corsOptions = {
-  origin: [
-    'https://economy-frontend.vercel.app',  // your Vercel URL
-    'http://localhost:3000',                   // for local development
-  ],
+  origin: (origin, callback) => {
+    const allowed = [
+      'https://economy-frontend.vercel.app',
+      'http://localhost:3000',
+    ];
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 };
+
 app.use(cors(corsOptions));
 app.use(express.json());
 
