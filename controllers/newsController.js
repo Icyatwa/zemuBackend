@@ -102,14 +102,10 @@ exports.updateNews = async (req, res) => {
   try {
     const news = await News.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { ...req.body, wasEdited: true, editedAt: new Date() },
       { new: true, runValidators: true }
     );
-
-    if (!news) {
-      return res.status(404).json({ message: 'News not found' });
-    }
-
+    if (!news) return res.status(404).json({ message: 'News not found' });
     res.status(200).json(news);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

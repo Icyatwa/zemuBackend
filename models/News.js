@@ -54,7 +54,15 @@ const newsSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  wasEdited: {
+    type: Boolean,
+    default: false,
+  },
+  editedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 newsSchema.pre('save', function(next) {
