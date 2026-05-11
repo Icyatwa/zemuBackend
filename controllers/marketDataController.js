@@ -23,10 +23,12 @@ exports.createItem = async (req, res) => {
   try {
     const Model = getModel(req.params.type);
     if (!Model) return res.status(400).json({ message: 'Invalid type' });
-    // Prevent duplicates by sym
-    const exists = await Model.findOne({ sym: req.body.sym?.toUpperCase() });
+    const sym = req.body.sym?.trim().toUpperCase();
+    if (!sym) return res.status(400).json({ message: 'sym is required' });
+    // Check ALL docs — including archived — so a sym retired via "New Data" can't be re-created
+    const exists = await Model.findOne({ sym });
     if (exists) return res.status(409).json({ message: 'already_exists', item: exists });
-    const item = await Model.create({ ...req.body, sym: req.body.sym?.toUpperCase(), updatedAt: new Date() });
+    const item = await Model.create({ ...req.body, sym, updatedAt: new Date() });
     res.status(201).json(item);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

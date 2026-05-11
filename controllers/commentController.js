@@ -8,7 +8,9 @@ const News = require('../models/News');
 exports.getMarketComments = async (req, res) => {
   try {
     const { marketType, sym } = req.params;
-    const comments = await Comment.find({ sourceType: 'market', marketType, sym })
+    // Comments are keyed by marketType+sym string — they belong to the sym,
+    // not to a specific document version. No archived filter needed here.
+    const comments = await Comment.find({ sourceType: 'market', marketType, sym: sym.toUpperCase() })
       .sort({ createdAt: -1 })
       .limit(50);
     res.status(200).json(comments);
@@ -200,8 +202,8 @@ exports.getMyActivity = async (req, res) => {
       const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
       const Model = ModelMap[marketType];
       if (!Model) return Promise.resolve(null);
-      // Return ALL docs for this sym, the comment controller will pick the right one
-      return Model.find({ sym }).sort({ archivedAt: -1, updatedAt: -1 }).lean();
+      // Return only the single live (non-archived) document
+      return Model.findOne({ sym, archived: { $ne: true } }).lean();
     });
 
     const newsArticlePromises = Array.from(newsKeys.values()).map(({ newsId }) =>
@@ -228,7 +230,7 @@ exports.getMyActivity = async (req, res) => {
         label: `${marketType?.toUpperCase()} · ${sym}`,
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
-        marketItems: marketItems[idx] || [],   // ← new
+        marketItem: marketItems[idx] || null,   // ← single live item
       });
     });
 
