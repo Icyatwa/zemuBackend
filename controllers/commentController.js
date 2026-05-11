@@ -23,13 +23,12 @@ exports.getMarketComments = async (req, res) => {
 exports.createMarketComment = async (req, res) => {
   try {
     const { marketType, sym } = req.params;
-    const { text } = req.body;
+    const { text, marketDocId } = req.body;  // ← frontend sends this
     if (!text?.trim()) return res.status(400).json({ message: 'Comment text required' });
 
     const comment = await Comment.create({
-      sourceType: 'market',
-      marketType,
-      sym: sym.toUpperCase(),
+      sourceType: 'market', marketType, sym,
+      marketDocId: marketDocId || null,       // ← store it
       user: req.user._id,
       userName: req.user.name,
       text: text.trim()
@@ -148,6 +147,18 @@ exports.toggleReplyLike = async (req, res) => {
   }
 };
 
+exports.getMarketCommentsByDocId = async (req, res) => {
+  try {
+    const { marketType, sym, docId } = req.params;
+    const comments = await Comment.find({
+      sourceType: 'market', marketType, sym, marketDocId: docId
+    }).sort({ createdAt: -1 }).limit(50);
+    res.status(200).json(comments);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // ─── DELETE a comment (owner or admin) ───────────────────────────────────────
 exports.deleteComment = async (req, res) => {
   try {
@@ -198,11 +209,32 @@ exports.getMyActivity = async (req, res) => {
       Comment.find({ sourceType: 'news', newsId }).sort({ createdAt: -1 }).limit(50).lean()
     );
 
-    const marketItemPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) => {
+    // For activity, we want to show the *archived* doc that the comments were written about,
+    // not the live current doc. We find the most-recent archived doc whose _id matches
+    // any marketDocId stored on the user's comments for that sym.
+    const marketItemPromises = Array.from(marketKeys.values()).map(({ marketType, sym, ids }) => {
       const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
       const Model = ModelMap[marketType];
       if (!Model) return Promise.resolve(null);
-      // Return only the single live (non-archived) document
+
+      // Gather the distinct marketDocIds the user's comments reference for this sym
+      const relevantComments = threads.filter(t =>
+        t.sourceType === 'market' && t.marketType === marketType && t.sym === sym && t.marketDocId
+      );
+      const docIds = [...new Set(relevantComments.map(c => c.marketDocId?.toString()).filter(Boolean))];
+
+      if (docIds.length > 0) {
+        // Prefer the archived doc(s) the comments were actually written on
+        return Model.findOne({ _id: { $in: docIds }, archived: true })
+          .sort({ archivedAt: -1 })
+          .lean()
+          .then(archived => {
+            if (archived) return { ...archived, _isArchived: true };
+            // Fall back to live doc if somehow not archived yet
+            return Model.findOne({ sym, archived: { $ne: true } }).lean();
+          });
+      }
+      // No marketDocId on comments (legacy) — fall back to live doc
       return Model.findOne({ sym, archived: { $ne: true } }).lean();
     });
 
@@ -222,6 +254,7 @@ exports.getMyActivity = async (req, res) => {
     Array.from(marketKeys.values()).forEach(({ marketType, sym }, idx) => {
       const key = `market:${marketType}:${sym}`;
       const allComments = marketSiblingGroups[idx] || [];
+      const mItem = marketItems[idx] || null;
       conversationMap.set(key, {
         key,
         sourceType: 'market',
@@ -230,7 +263,8 @@ exports.getMyActivity = async (req, res) => {
         label: `${marketType?.toUpperCase()} · ${sym}`,
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
-        marketItem: marketItems[idx] || null,   // ← single live item
+        marketItem: mItem,
+        marketItemIsArchived: mItem?._isArchived || false,  // tells frontend this is the old doc
       });
     });
 

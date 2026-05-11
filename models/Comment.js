@@ -41,6 +41,11 @@ const commentSchema = new mongoose.Schema({
   text: { type: String, required: true, maxlength: 5000 },
   likes:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'UserAccount' }],
   replies:  [replySchema],
+  marketDocId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+    // set when sourceType === 'market', stores the exact document _id
+  },
   createdAt:{ type: Date, default: Date.now }
 });
 

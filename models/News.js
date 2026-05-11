@@ -63,6 +63,7 @@ const newsSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  editNote: { type: String, default: '' },
 });
 
 newsSchema.pre('save', function(next) {

@@ -10,6 +10,7 @@ router.get('/my-activity', protect, ctrl.getMyActivity);
 // ─── Market comments ──────────────────────────────────────────────────────────
 router.get('/market/:marketType/:sym', protect, ctrl.getMarketComments);
 router.post('/market/:marketType/:sym', protect, ctrl.createMarketComment);
+router.get('/market/:marketType/:sym/:docId', protect, ctrl.getMarketCommentsByDocId);
 
 // ─── News comments ────────────────────────────────────────────────────────────
 router.get('/news/:newsId', protect, ctrl.getNewsComments);
