@@ -239,7 +239,7 @@ exports.getMyActivity = async (req, res) => {
     });
 
     const newsArticlePromises = Array.from(newsKeys.values()).map(({ newsId }) =>
-      News.findById(newsId).select('title summary content author date category image').lean()
+      News.findById(newsId).select('title summary content author date category image wasEdited editedAt').lean()
     );
 
     const [marketSiblingGroups, newsSiblingGroups, marketItems, newsArticles] = await Promise.all([
