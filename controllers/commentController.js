@@ -29,7 +29,7 @@ exports.createMarketComment = async (req, res) => {
     const comment = await Comment.create({
       sourceType: 'market',
       marketType,
-      sym,
+      sym: sym.toUpperCase(),
       user: req.user._id,
       userName: req.user.name,
       text: text.trim()

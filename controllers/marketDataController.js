@@ -28,6 +28,12 @@ exports.createItem = async (req, res) => {
     // Check ALL docs — including archived — so a sym retired via "New Data" can't be re-created
     const exists = await Model.findOne({ sym });
     if (exists) return res.status(409).json({ message: 'already_exists', item: exists });
+    // Also block duplicate company/currency/item names (case-insensitive) across live docs
+    const name = req.body.name?.trim();
+    if (name) {
+      const nameDup = await Model.findOne({ name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }, archived: { $ne: true } });
+      if (nameDup) return res.status(409).json({ message: 'name_exists', item: nameDup });
+    }
     const item = await Model.create({ ...req.body, sym, updatedAt: new Date() });
     res.status(201).json(item);
   } catch (err) {
