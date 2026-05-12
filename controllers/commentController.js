@@ -178,8 +178,8 @@ exports.getMyActivity = async (req, res) => {
   try {
     const userId = req.user._id.toString();
 
-    const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(50).lean();  // was 200
-    const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(50).lean(); // was 200
+    const myComments     = await Comment.find({ user: userId }).sort({ createdAt: -1 }).limit(50).lean();
+    const repliedThreads = await Comment.find({ 'replies.user': userId }).sort({ createdAt: -1 }).limit(50).lean();
 
     const threadMap = new Map();
     for (const c of [...myComments, ...repliedThreads]) {
@@ -187,72 +187,77 @@ exports.getMyActivity = async (req, res) => {
     }
 
     const threads = Array.from(threadMap.values());
-    const marketKeys = new Map();
-    const newsKeys   = new Map();
+
+    // Group market comments by their exact marketDocId (each data period = its own activity card).
+    // News comments group by newsId as before.
+    // Legacy market comments with no marketDocId fall back to sym-level grouping.
+    const marketDocKeys = new Map();
+    const newsKeys      = new Map();
 
     for (const t of threads) {
       if (t.sourceType === 'market') {
-        const key = `${t.marketType}:${t.sym}`;
-        if (!marketKeys.has(key)) marketKeys.set(key, { marketType: t.marketType, sym: t.sym, ids: [] });
-        marketKeys.get(key).ids.push(t._id.toString());
+        const key = t.marketDocId
+          ? `marketdoc:${t.marketDocId.toString()}`
+          : `marketsym:${t.marketType}:${t.sym}`;
+        if (!marketDocKeys.has(key)) {
+          marketDocKeys.set(key, {
+            key,
+            marketType: t.marketType,
+            sym: t.sym,
+            marketDocId: t.marketDocId?.toString() || null,
+          });
+        }
       } else {
         const key = t.newsId?.toString();
-        if (key && !newsKeys.has(key)) newsKeys.set(key, { newsId: t.newsId, newsTitle: t.newsTitle, ids: [] });
-        if (key) newsKeys.get(key).ids.push(t._id.toString());
+        if (key && !newsKeys.has(key)) newsKeys.set(key, { newsId: t.newsId, newsTitle: t.newsTitle });
       }
     }
 
-    const marketSiblingPromises = Array.from(marketKeys.values()).map(({ marketType, sym }) =>
-      Comment.find({ sourceType: 'market', marketType, sym }).sort({ createdAt: -1 }).limit(50).lean()
-    );
-    const newsSiblingPromises = Array.from(newsKeys.values()).map(({ newsId }) =>
+    const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
+    const marketDocEntries = Array.from(marketDocKeys.values());
+    const newsEntries      = Array.from(newsKeys.values());
+
+    // Fetch only the comments that belong to each specific doc-period bucket
+    const marketSiblingPromises = marketDocEntries.map(({ marketType, sym, marketDocId }) => {
+      if (marketDocId) {
+        return Comment.find({ sourceType: 'market', marketType, sym, marketDocId }).sort({ createdAt: -1 }).limit(50).lean();
+      }
+      // Legacy: comments with no docId — exclude any that now have one
+      return Comment.find({ sourceType: 'market', marketType, sym, marketDocId: null }).sort({ createdAt: -1 }).limit(50).lean();
+    });
+
+    const newsSiblingPromises = newsEntries.map(({ newsId }) =>
       Comment.find({ sourceType: 'news', newsId }).sort({ createdAt: -1 }).limit(50).lean()
     );
 
-    // For activity, we want to show the *archived* doc that the comments were written about,
-    // not the live current doc. We find the most-recent archived doc whose _id matches
-    // any marketDocId stored on the user's comments for that sym.
-    const marketItemPromises = Array.from(marketKeys.values()).map(({ marketType, sym, ids }) => {
-      const ModelMap = { stocks: Stock, forex: Forex, goods: Good };
+    // Fetch the exact market doc for each bucket (archived or live)
+    const marketItemPromises = marketDocEntries.map(({ marketType, sym, marketDocId }) => {
       const Model = ModelMap[marketType];
       if (!Model) return Promise.resolve(null);
-
-      // Gather the distinct marketDocIds the user's comments reference for this sym
-      const relevantComments = threads.filter(t =>
-        t.sourceType === 'market' && t.marketType === marketType && t.sym === sym && t.marketDocId
-      );
-      const docIds = [...new Set(relevantComments.map(c => c.marketDocId?.toString()).filter(Boolean))];
-
-      if (docIds.length > 0) {
-        // Prefer the archived doc(s) the comments were actually written on
-        return Model.findOne({ _id: { $in: docIds }, archived: true })
-          .sort({ archivedAt: -1 })
-          .lean()
-          .then(archived => {
-            if (archived) return { ...archived, _isArchived: true };
-            // Fall back to live doc if somehow not archived yet
-            return Model.findOne({ sym, archived: { $ne: true } }).lean();
-          });
+      if (marketDocId) {
+        return Model.findById(marketDocId).lean().then(doc => {
+          if (!doc) return null;
+          return { ...doc, _isArchived: !!doc.archived };
+        });
       }
-      // No marketDocId on comments (legacy) — fall back to live doc
+      // Legacy fallback
       return Model.findOne({ sym, archived: { $ne: true } }).lean();
     });
 
-    const newsArticlePromises = Array.from(newsKeys.values()).map(({ newsId }) =>
+    const newsArticlePromises = newsEntries.map(({ newsId }) =>
       News.findById(newsId).select('title summary content author date category image wasEdited editedAt').lean()
     );
 
     const [marketSiblingGroups, newsSiblingGroups, marketItems, newsArticles] = await Promise.all([
       Promise.all(marketSiblingPromises),
       Promise.all(newsSiblingPromises),
-      Promise.all(marketItemPromises),   // ← new
-      Promise.all(newsArticlePromises),  // ← new
+      Promise.all(marketItemPromises),
+      Promise.all(newsArticlePromises),
     ]);
 
     const conversationMap = new Map();
 
-    Array.from(marketKeys.values()).forEach(({ marketType, sym }, idx) => {
-      const key = `market:${marketType}:${sym}`;
+    marketDocEntries.forEach(({ key, marketType, sym, marketDocId }, idx) => {
       const allComments = marketSiblingGroups[idx] || [];
       const mItem = marketItems[idx] || null;
       conversationMap.set(key, {
@@ -260,15 +265,16 @@ exports.getMyActivity = async (req, res) => {
         sourceType: 'market',
         marketType,
         sym,
+        marketDocId,
         label: `${marketType?.toUpperCase()} · ${sym}`,
         allComments,
         lastActivity: allComments[0]?.createdAt || null,
         marketItem: mItem,
-        marketItemIsArchived: mItem?._isArchived || false,  // tells frontend this is the old doc
+        marketItemIsArchived: mItem?._isArchived || false,
       });
     });
 
-    Array.from(newsKeys.values()).forEach(({ newsId, newsTitle }, idx) => {
+    newsEntries.forEach(({ newsId, newsTitle }, idx) => {
       const key = `news:${newsId}`;
       const allComments = newsSiblingGroups[idx] || [];
       conversationMap.set(key, {
