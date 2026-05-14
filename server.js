@@ -1,18 +1,19 @@
 // server.js
+const dotenv = require('dotenv');
+dotenv.config(); // ← must be first, before any other requires
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const compression = require('compression');
 const authRoutes = require('./routes/authRoutes');
 const userAuthRoutes = require('./routes/userAuthRoutes'); // ← new
 const newsRoutes = require('./routes/newsRoutes');
 const marketDataRoutes = require('./routes/marketDataRoutes');
 const commentRoutes = require('./routes/commentRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { warmCache } = require('./controllers/newsController');
-
-dotenv.config();
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/users/auth', userAuthRoutes); // regular user auth  ← new
 app.use('/api/news', newsRoutes);
 app.use('/api/market', marketDataRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.use(errorHandler);
 
