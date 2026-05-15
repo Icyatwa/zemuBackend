@@ -10,7 +10,7 @@ const {
 } = require('../controllers/adminController');
 const { protect, adminOnly } = require('../middleware/auth');
 
-router.use(protect, adminOnly);
+router.use(protect, adminOnly); 
 router.get('/users',            getAllUsers);
 router.get('/users/:userId',    getUserDetail);
 router.get('/conversations',    getAllConversations);
