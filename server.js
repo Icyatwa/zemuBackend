@@ -7,7 +7,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const compression = require('compression');
 const authRoutes = require('./routes/authRoutes');
-const userAuthRoutes = require('./routes/userAuthRoutes'); // ← new
+const adminRoutes = require('./routes/adminRoutes');
+const userAuthRoutes = require('./routes/userAuthRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const marketDataRoutes = require('./routes/marketDataRoutes');
 const commentRoutes = require('./routes/commentRoutes');
@@ -25,7 +26,6 @@ const corsOptions = {
       'https://economy-frontend.vercel.app',
       'http://localhost:3000',
     ];
-    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin || allowed.includes(origin)) {
       callback(null, true);
     } else {
@@ -45,12 +45,13 @@ mongoose.connect(process.env.MONGODB_URI)
 app.get('/api/health', (req, res) => res.json({ ok: true, timestamp: new Date() }));
 
 // Routes
-app.use('/api/auth', authRoutes);           // admin auth
-app.use('/api/users/auth', userAuthRoutes); // regular user auth  ← new
-app.use('/api/news', newsRoutes);
-app.use('/api/market', marketDataRoutes);
-app.use('/api/comments', commentRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/auth',        authRoutes);
+app.use('/api/users/auth',  userAuthRoutes);
+app.use('/api/admin',       adminRoutes);
+app.use('/api/news',        newsRoutes);
+app.use('/api/market',      marketDataRoutes);
+app.use('/api/comments',    commentRoutes);
+app.use('/api/upload',      uploadRoutes);
 
 app.use(errorHandler);
 
