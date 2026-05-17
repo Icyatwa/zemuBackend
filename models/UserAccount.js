@@ -13,7 +13,6 @@ const userAccountSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
     minlength: 8,
     select: false
   },
@@ -25,6 +24,34 @@ const userAccountSchema = new mongoose.Schema({
     type: String,
     default: 'user'
   },
+  // Email verification
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  // OTP fields
+  otp: {
+    type: String,
+    select: false
+  },
+  otpExpires: {
+    type: Date,
+    select: false
+  },
+  otpType: {
+    type: String, // 'verify' | 'forgot'
+    select: false
+  },
+  // Google OAuth
+  googleId: {
+    type: String,
+    sparse: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -33,7 +60,7 @@ const userAccountSchema = new mongoose.Schema({
 
 // Hash password before saving
 userAccountSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password') || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
