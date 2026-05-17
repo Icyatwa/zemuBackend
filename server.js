@@ -24,7 +24,7 @@ const corsOptions = {
   origin: (origin, callback) => {
     const allowed = [
       'https://palanomic.com',
-      'palanomic.com',
+      'palanomic.com', 
       'https://www.palanomic.com',
       'www.palanomic.com',
       'https://economy-frontend.vercel.app',
