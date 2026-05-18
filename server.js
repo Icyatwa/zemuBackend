@@ -27,6 +27,7 @@ const corsOptions = {
       'palanomic.com', 
       'https://www.palanomic.com',
       'www.palanomic.com',
+      'https://admin.palanomic.com',
       'https://addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
       'www.addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
       'addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
