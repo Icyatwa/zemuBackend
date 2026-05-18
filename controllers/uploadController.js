@@ -12,7 +12,7 @@ exports.uploadArticleImage = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No image file provided.' });
-    }
+    } 
 
     const uploadFromBuffer = () => {
       return new Promise((resolve, reject) => {

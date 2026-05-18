@@ -10,7 +10,7 @@ const CACHE_EXPIRY = {
   DASHBOARD_STATS: 180, // 3 minutes
   SEARCH_RESULTS: 120,  // 2 minutes
 };
-
+ 
 // Helper function for cache operations
 const cacheGet = async (key) => {
   return null; // Always return null when Redis is disabled

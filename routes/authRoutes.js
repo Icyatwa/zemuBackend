@@ -13,7 +13,7 @@ router.get('/setup-admin', async (req, res) => {
         const adminExists = await User.findOne({ email: 'admin@rwandaeconomicpulse.com' });
         if (adminExists) {
         return res.json({ message: 'Admin already exists', email: adminExists.email });
-        }
+        } 
 
         // Create admin user
         const admin = await User.create({

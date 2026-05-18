@@ -15,7 +15,7 @@ router.get('/market/:marketType/:sym/:docId', protect, ctrl.getMarketCommentsByD
 // ─── News comments ────────────────────────────────────────────────────────────
 router.get('/news/:newsId', protect, ctrl.getNewsComments);
 router.post('/news/:newsId', protect, ctrl.createNewsComment);
-
+ 
 // ─── Shared reply / like routes ───────────────────────────────────────────────
 router.post('/:commentId/replies', protect, ctrl.addReply);
 router.patch('/:commentId/like', protect, ctrl.toggleCommentLike);

@@ -12,4 +12,4 @@ router.put('/:type/:id',          protect, adminOnly, updateItem);
 router.put('/:type/:id/new-data', protect, adminOnly, publishNewData); // ← new
 router.delete('/:type/:id',       protect, adminOnly, deleteItem);
 
-module.exports = router;
+module.exports = router; 

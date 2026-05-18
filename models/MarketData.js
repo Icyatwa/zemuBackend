@@ -12,7 +12,7 @@ const snapshotFields = {
   recordedAt: { type: Date, default: Date.now },
 };
 
-const baseFields = {
+const baseFields = { 
   sym:      { type: String, required: true },
   name:     { type: String, required: true },
   // current live data

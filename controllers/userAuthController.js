@@ -11,7 +11,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (id) => {
   return jwt.sign({ id, type: 'user' }, process.env.JWT_SECRET, {
     expiresIn: '30d'
-  });
+  }); 
 };
 
 // Generate 6-digit OTP

@@ -7,7 +7,7 @@ const getModel = (type) => {
   if (type === 'goods')  return Good;
   return null;
 };
-
+ 
 exports.getAll = async (req, res) => {
   try {
     const Model = getModel(req.params.type);

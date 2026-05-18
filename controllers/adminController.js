@@ -6,7 +6,7 @@ const { Stock, Forex, Good } = require('../models/MarketData');
 
 // ─── GET all regular users ────────────────────────────────────────────────────
 exports.getAllUsers = async (req, res) => {
-  try {
+  try { 
     const { search, page = 1, limit = 20 } = req.query;
     const query = {};
     if (search) {

@@ -13,7 +13,7 @@ const {
   prefetchNews
 } = require('../controllers/newsController');
 const { protect, adminOnly } = require('../middleware/auth');
-
+ 
 // Public routes
 router.get('/published', getPublishedNews);
 router.get('/published/:id', getPublishedNewsById); // Using the new function

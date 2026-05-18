@@ -6,7 +6,7 @@ const News = require('../models/News');
 
 // ─── GET comments for a MARKET item ──────────────────────────────────────────
 exports.getMarketComments = async (req, res) => {
-  try {
+  try { 
     const { marketType, sym } = req.params;
     // Comments are keyed by marketType+sym string — they belong to the sym,
     // not to a specific document version. No archived filter needed here.

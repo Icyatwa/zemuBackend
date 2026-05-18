@@ -11,7 +11,7 @@ const replySchema = new mongoose.Schema({
 }, { _id: true });
 
 const commentSchema = new mongoose.Schema({
-  // 'market' or 'news'
+  // 'market' or 'news' 
   sourceType: {
     type: String,
     enum: ['market', 'news'],

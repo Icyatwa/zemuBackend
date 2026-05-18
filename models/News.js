@@ -11,7 +11,7 @@ const newsSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Summary is required'],
     trim: true
-  },
+  }, 
   content: {
     type: String,
     required: [true, 'Content is required']

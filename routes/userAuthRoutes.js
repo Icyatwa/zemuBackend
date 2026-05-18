@@ -11,7 +11,7 @@ const {
   resetPassword,
   googleAuth
 } = require('../controllers/userAuthController');
-
+ 
 router.post('/register',            register);
 router.post('/login',               login);
 router.post('/verify-otp',          verifyOTP);
