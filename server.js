@@ -27,6 +27,10 @@ const corsOptions = {
       'palanomic.com', 
       'https://www.palanomic.com',
       'www.palanomic.com',
+      'https://addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
+      'www.addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
+      'addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com',
+      'https://addnfjdnfkdjnjkvdnjkvndfkj.palanomic.com/',
       'https://economy-frontend.vercel.app',
       'http://localhost:3000',
     ];
