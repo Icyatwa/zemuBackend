@@ -62,6 +62,70 @@ app.use('/api/market',      marketDataRoutes);
 app.use('/api/comments',    commentRoutes);
 app.use('/api/upload',      uploadRoutes);
 
+// ── Open Graph / Twitter Card route ──────────────────────────────────────────
+// When X (Twitter) or any crawler visits /article/:id, this returns a full HTML
+// page with proper og: and twitter: meta tags so the card preview works.
+// Regular users are redirected to the React frontend immediately.
+const News = require('./models/News');
+
+app.get('/article/:id', async (req, res) => {
+  try {
+    const news = await News.findOne({ _id: req.params.id, status: 'published' });
+
+    if (!news) {
+      return res.redirect('https://palanomic.com');
+    }
+
+    const title       = news.title || 'Palanomic';
+    const description = news.summary || 'Finance and economy news from Rwanda and East Africa.';
+    const image       = news.image  || 'https://palanomic.com/og-default.jpg';
+    const url         = `https://palanomic.com/article/${news._id}`;
+
+    // Detect bots/crawlers by User-Agent
+    const ua = req.headers['user-agent'] || '';
+    const isCrawler = /twitterbot|facebookexternalhit|linkedinbot|whatsapp|telegrambot|slackbot|discordbot|googlebot|bingbot/i.test(ua);
+
+    if (!isCrawler) {
+      // Real user → send them straight to the React frontend
+      return res.redirect(url.replace('https://palanomic.com', 'https://palanomic.com'));
+    }
+
+    // Crawler → return HTML with full meta tags
+    return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${title}</title>
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="article" />
+  <meta property="og:site_name"   content="Palanomic" />
+  <meta property="og:title"       content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image"       content="${image}" />
+  <meta property="og:url"         content="${url}" />
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:site"        content="@palanomic" />
+  <meta name="twitter:title"       content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image"       content="${image}" />
+
+  <meta http-equiv="refresh" content="0;url=${url}" />
+</head>
+<body>
+  <p>Loading article... <a href="${url}">Click here if not redirected</a></p>
+</body>
+</html>`);
+
+  } catch (err) {
+    console.error('OG route error:', err);
+    return res.redirect('https://palanomic.com');
+  }
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
