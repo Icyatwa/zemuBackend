@@ -87,7 +87,7 @@ app.get('/article/:id', async (req, res) => {
 
     if (!isCrawler) {
       // Real user → send them straight to the React frontend
-      return res.redirect(url.replace('https://palanomic.com', 'https://palanomic.com'));
+      return res.redirect(`https://palanomic.com/article/${news._id}`);
     }
 
     // Crawler → return HTML with full meta tags
@@ -107,7 +107,7 @@ app.get('/article/:id', async (req, res) => {
 
   <!-- Twitter / X Card -->
   <meta name="twitter:card"        content="summary_large_image" />
-  <meta name="twitter:site"        content="@palanomic" />
+  <meta name="twitter:site"        content="@PalanoMic" />
   <meta name="twitter:title"       content="${title}" />
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image"       content="${image}" />
